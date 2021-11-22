@@ -4,9 +4,16 @@ using UnityEngine;
 
 public class Simulation : MonoBehaviour
 {
+    // Variables para la creación del cuarto
     public float roomHeight = 7.0f;
     private Mesh roomMesh;
     private Renderer renderer;
+
+    // Prefabs por ser colocados
+    public GameObject robot;
+    public GameObject box;
+    public GameObject door;
+    public GameObject stack;
 
     void Start() {
         // Obtención del mesh del cuarto base
@@ -14,8 +21,8 @@ public class Simulation : MonoBehaviour
         renderer = GameObject.FindGameObjectsWithTag("Room")[0].GetComponent<Renderer>();
 
         // Variables que provienen de Colab para la generación del cuarto
-        int M = 8;
-        int N = 4;
+        int M = 20;
+        int N = 20;
         GenerateRoom(M, N);
     }
 
@@ -61,12 +68,15 @@ public class Simulation : MonoBehaviour
         int sectionSize = 8;
         int horLights = width / sectionSize;
         int verLights = height / sectionSize;
+        horLights = horLights == 0 ? 1 : horLights;
+        verLights = verLights == 0 ? 1 : verLights;
 
         // Disclaimer
-        if (horLights * verLights > 4) {
-            Debug.Log("Unity básico no mostrará la luz de más de 4 fuentes puntuales");
+        if (horLights * verLights > 2) {
+            Debug.Log("Unity básico no mostrará muchas fuentes de luz puntuales");
         }
 
+        // Creación de luces y personalización
         for (int i = 0; i < horLights; i++) {
             for (int j = 0; j < verLights; j++) {
                 // Creación de un objeto vacío, con transform, que tenga la luz como componente
@@ -84,5 +94,8 @@ public class Simulation : MonoBehaviour
                 roomLight.renderMode = LightRenderMode.ForcePixel;
             }
         }
+
+        // EJEMPLO DE INSTANCIA DESDE CÓDIGO
+        Instantiate(robot, new Vector3(1,1,1), Quaternion.identity);
     }
 }
