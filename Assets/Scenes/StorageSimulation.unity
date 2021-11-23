@@ -1223,7 +1223,7 @@ Mesh:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: pb_Mesh23358
+  m_Name: pb_Mesh24070
   serializedVersion: 10
   m_SubMeshes:
   - serializedVersion: 2
@@ -1499,11 +1499,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2ee0e656de3f02c4498de5347282c7cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  roomHeight: 7
+  url: 
+  updateInterval: 5
   robot: {fileID: 1485148706515525954, guid: 365a0314f4b525045b6471b8f0ee4017, type: 3}
-  box: {fileID: 0}
-  door: {fileID: 0}
-  stack: {fileID: 0}
+  box: {fileID: 627756588464653019, guid: dd668981f9461b345a62cf6a200946ff, type: 3}
+  door: {fileID: 1912217142267465021, guid: 354746b2f872db344ab38a142c195cef, type: 3}
+  stack: {fileID: 5874624987290668567, guid: 7e8a63f50e9806746afc5c6bdba5e83c, type: 3}
 --- !u!108 &963194230
 Light:
   m_ObjectHideFlags: 0
