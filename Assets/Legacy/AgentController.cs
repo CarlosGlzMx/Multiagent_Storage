@@ -59,7 +59,7 @@ public class AgentController : MonoBehaviour
         WWWForm form = new WWWForm();
         form.AddField("bundle", "the data");
         //string url = "http://localhost:8585";
-        string url = "http://5519-35-245-218-31.ngrok.io/";
+        string url = "http://867e-34-80-60-62.ngrok.io/";
         using (UnityWebRequest www = UnityWebRequest.Post(url, form))
         {
             byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(data);
@@ -76,17 +76,12 @@ public class AgentController : MonoBehaviour
             }
             else
             {
-                //Debug.Log(www.downloadHandler.text);    // Answer from Python
-                //Debug.Log("Form upload complete!");
-                //Data tPos = JsonUtility.FromJson<Data>(www.downloadHandler.text.Replace('\'', '\"'));
-                //Debug.Log(tPos);
                 string txt = www.downloadHandler.text.Replace('\'', '\"');
                 txt = txt.TrimStart('"', '{', 'd', 'a', 't', 'a', ':', '[');
                 txt = "{\"" + txt;
                 txt = txt.TrimEnd(']', '}');
                 txt = txt + '}';
                 string[] strs = txt.Split(new string[] { "}, {" }, StringSplitOptions.None);
-                Debug.Log("strs.Length:" + strs.Length);
                 
                 var newAgentInfo = new List<AgentInfo>();
                 for (int i = 0; i < strs.Length; i++)
@@ -136,14 +131,14 @@ public class AgentController : MonoBehaviour
 
 
         _features = new List<List<AgentInfo>>();
-        Debug.Log(_agents.Length);
 #if UNITY_EDITOR
         //string call = "WAAAAASSSSSAAAAAAAAAAP?";
         Vector3 fakePos = new Vector3(3.44f, 0, -15.707f);
         AgentInfo fakeAgent = new AgentInfo("Ball", "Red", fakePos);
         string json = fakeAgent.SaveToString();
+        Debug.Log(json);
         StartCoroutine(SendData(json));
-        //Debug.Log(json);
+        Debug.Log(json);
         _timer = timeToUpdate;
 #endif
     }
@@ -176,7 +171,6 @@ public class AgentController : MonoBehaviour
             {
                 // Get the last position for the s-th agent
                 List<AgentInfo> last = _features[^1];
-                Debug.Log(last[s].position);
                 
                 // Get the previous to last position for the s-th agent
                 List<AgentInfo> prevLast = _features[^2];

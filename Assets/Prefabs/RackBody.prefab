@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 7882099194702813960}
   - component: {fileID: 5370015052901887938}
   m_Layer: 0
-  m_Name: RackPlus
+  m_Name: RackBody
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
