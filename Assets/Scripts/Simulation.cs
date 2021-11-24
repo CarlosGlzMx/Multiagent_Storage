@@ -6,6 +6,8 @@ El equipo de trabajo genera en su mayoría código independiente, pero acude a
 implementaciones de profesores del Tecnológico de Monterrey para las conexiones
 con HTTP y el manejo de los datos que se envían y reciben.
 
+https://colab.research.google.com/drive/1hcRyf_sUnMaF551BBNDEeXwyokZ5cswo?usp=sharing
+
 - Versión para la actividad integradora del equipo 2, Carlos G. del Rosal, 11/22/2021
 - Adapted by [Jorge Cruz](https://jcrvz.co) on November 2021
 - Original implementation: C# client to interact with Unity, Sergio Ruiz, July 2021
@@ -19,40 +21,62 @@ using UnityEngine;
 using UnityEngine.Networking;
 
 public class Simulation : MonoBehaviour {
-    // Variables para la creación del cuarto
+    // Variables para la creación del cuarto - base
     private int m = 1, n = 1, roomHeight = 7;
     private Mesh roomMesh;
-    private Renderer renderer;
+    private Renderer roomRenderer;
 
     // Conexión con Colab
     public string url; 
 
     // Variables para el flujo del simulador. Robots puede ser array dado que los ids empiezan en 0
-    public GameObject[] robots;
-    public GameObject[] stacks;
-    public Dictionary<Vector2, GameObject> boxes;
-    public float stepSpeed = 5.0f;
-    private float _timer, _dt;
+    private GameObject[] robots;
+    private GameObject[] stacks;
+    private Dictionary<string, GameObject> boxes;
+    private List<Move> ongoingMoves = new List<Move>();
+
+    // Controles de duración y activación de la simulación
+    public float stepDuration = 5.0f;
+    private float timer, parametrizedT;
+    private bool active = false;
 
     // Prefabs por ser colocados
     public GameObject robot, box, door, stack;
 
     void Start() {
-        // Obtención de los componentes del cuarto base
-        roomMesh = GameObject.FindGameObjectsWithTag("Room")[0].GetComponent<MeshFilter>().mesh;
-        renderer = GameObject.FindGameObjectsWithTag("Room")[0].GetComponent<Renderer>();
-
-        // Primera conexión con Colab, devuelve M, N y el grid inicial
-        // De ahí mismo se llamará la construcción del cuarto y los agentes
+        // Incialización definida por Colab
         StartCoroutine(RequestToColab("board-init"));
         StartCoroutine(RequestToColab("robots"));
         StartCoroutine(RequestToColab("stacks"));
         StartCoroutine(RequestToColab("boxes"));
-        StartCoroutine(RequestToColab("step"));
+
+        // Inicialización del cronometro
+        timer = stepDuration;
     }
 
     void Update() {
-        
+        // Permite tener la simulación inactiva sin tener que dejar/destruir la escena
+        if (active) {
+            // Cuenta el tiempo hacia 0 restando el tiempo por frame
+            timer -= Time.deltaTime;
+            parametrizedT = 1.0f - (timer / stepDuration);
+            if (timer < 0) {
+                // Acciones por realizar cada stepDuration
+                ongoingMoves.Clear();
+                StartCoroutine(RequestToColab("step"));
+                
+                // Reinicia el timer al cumplirse la duración
+                timer = stepDuration;
+            }
+
+            // Realiza los movimientos pendientes
+            if (ongoingMoves.Count > 0) {
+                foreach (Move robotMove in ongoingMoves) {
+                    robots[robotMove.robotID].transform.position = Vector3.Lerp(
+                        robotMove.origin, robotMove.destination, parametrizedT);
+                }
+            }
+        }
     }
 
     // Método para comunicación con Python, envía datos petición y recibe datos de simulación
@@ -60,67 +84,89 @@ public class Simulation : MonoBehaviour {
         // Crea un form que se enviará en el método POST
         WWWForm form = new WWWForm();
         string requestInJSON = "{\"request\" : \"" + requestName + "\"}";
+        byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(requestInJSON);
         form.AddField("request", requestInJSON);
         using (UnityWebRequest www = UnityWebRequest.Post(url, form)) {
 
             // Preparación de los datos y el encabezado HTTP para salir hacia Colab
-            byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(requestInJSON);
-            www.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
-            www.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
+            www.uploadHandler.Dispose();
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
             www.SetRequestHeader("Content-Type", "application/json");
 
             // Se envía el request y se actúa en caso de error o éxito
             yield return www.SendWebRequest();
             if (www.result != UnityWebRequest.Result.ConnectionError &&
                 www.result != UnityWebRequest.Result.ProtocolError) {
+                string colabResponse = www.downloadHandler.text;
                 
                 // Casos considerados de requests distintos
-                if (requestName == "board-init") {
+                if (colabResponse == "{\"order\": \"stop\"}") {
+                    // Con la primera request que diga que Python se ha detenido deja de actualizar
+                    if (active) Debug.Log("Colab ha detenido el envío de datos");
+                    active = false;
+                }
+                else if (requestName == "board-init") {
                     // Obtiene el tamaño del tablero
-                    Board board = JsonUtility.FromJson<Board>(www.downloadHandler.text);
+                    Board board = JsonUtility.FromJson<Board>(colabResponse);
                     m = board.m;
                     n = board.n;
                     GenerateRoom(m, n);
+                    active = true;
                 }
                 else if (requestName == "robots") {
-                    StorageRobot[] robotData = JsonHelper.FromJson<StorageRobot>(www.downloadHandler.text);
-                    if (robots.Length == 0) SpawnRobots(robotData);
+                    // Obtiene los robots, los instancia como un prefab
+                    StorageRobot[] robotData = JsonHelper.FromJson<StorageRobot>(colabResponse);
+                    if (robots == null) SpawnRobots(robotData);
                 }
                 else if (requestName == "stacks") {
-                    Stack[] stackData = JsonHelper.FromJson<Stack>(www.downloadHandler.text);
-                    if (stacks.Length == 0) SpawnStacks(stackData);
+                    // Obtiene las pilas, las instancia como un prefab
+                    Stack[] stackData = JsonHelper.FromJson<Stack>(colabResponse);
+                    if (stacks == null) SpawnStacks(stackData);
                 }
                 else if (requestName == "boxes") {
-                    Box[] boxData = JsonHelper.FromJson<Box>(www.downloadHandler.text);
+                    // Obtiene las cajas, las instancia como un prefab
+                    Box[] boxData = JsonHelper.FromJson<Box>(colabResponse);
                     if (boxes == null) SpawnBoxes(boxData);
                 }
                 else if (requestName == "step") {
-                    Action[] stepActions = JsonHelper.FromJson<Action>(www.downloadHandler.text);
-                    executeActions(stepActions);
+                    // Obtiene las acciones por realizar en el siguiente tiempo de acción
+                    Debug.Log(colabResponse);
+                    Action[] stepActions = JsonHelper.FromJson<Action>(colabResponse);
+                    if (stepActions.Length > 0) executeActions(stepActions);
                 }
             }
             else {
                 // Error en la conexión con Colab
-                Debug.Log(www.error);
+                Debug.Log("No hay comunicación con Colab");
+                active = false;
             }
         }
     }
 
     // Ejecuta la lista de acciones correspondiente al step actual
     private void executeActions(Action[] stepActions) {
-        for (int i = 0; i < stepActions.Length; i++) {
-            if (stepActions[i].type == "Moverse") {
-                Debug.Log("Me muevo");
+        foreach (Action action in stepActions) {
+            if (action.type == "Moverse") {
+                // Registra el movimiento solo como el desplazamiento que se interpolará
+                ongoingMoves.Add(new Move(action.robotID,
+                    robots[action.robotID].transform.position, action.dx, action.dy));
             }
-            else if (stepActions[i].type == "Recoger") {
-                Debug.Log("Recojo caja");
+            else if (action.type == "Recoger") {
+                // "Recoge" la caja al activar la caja encima y destruir la caja debajo
+                robots[action.robotID].transform.Find("Box").GetComponent<Renderer>().enabled = true;
+                string boxPositionKey = ((int)robots[action.robotID].transform.position.x + action.dx) + "-"
+                    + ((int)(robots[action.robotID].transform.position.z + action.dy));
+                Destroy(boxes[boxPositionKey]);
             }
-            else if (stepActions[i].type == "Dejar") {
-                Debug.Log("Dejo caja");
+            else if (action.type == "Dejar") {
+                // "Deja" la caja al desactivar la caja encima e instanciar una caja en la pila
+                robots[action.robotID].transform.Find("Box").GetComponent<Renderer>().enabled = false;
+                Instantiate(box, new Vector3(robots[action.robotID].transform.position.x + action.dx,
+                    action.stackSize + 1, robots[action.robotID].transform.position.z + action.dy),
+                    Quaternion.identity);
             }
         }
     }
-
 
     private void SpawnRobots(StorageRobot[] data) {
         robots = new GameObject[data.Length];
@@ -141,16 +187,18 @@ public class Simulation : MonoBehaviour {
     }
 
     private void SpawnBoxes(Box[] data) {
-        boxes = new Dictionary<Vector2, GameObject>();
+        boxes = new Dictionary<string, GameObject>();
         for (int i = 0; i < data.Length; i++) {
-            boxes.Add(new Vector2(data[i].x, data[i].z), Instantiate(box,
+            boxes.Add(data[i].x + "-" + data[i].z, Instantiate(box,
                 new Vector3(data[i].x, 1, data[i].z), Quaternion.identity) as GameObject);
         }
     }
 
     // Genera un almacen de manera dinámica con: luces, puertas, texturas y una camara reubicada
-    void GenerateRoom(int width, int height) {
+    private void GenerateRoom(int width, int height) {
         // Obtiene los vértices del mesh que serán movidos según la parametrización
+        roomMesh = GameObject.FindGameObjectsWithTag("Room")[0].GetComponent<MeshFilter>().mesh;
+        roomRenderer = GameObject.FindGameObjectsWithTag("Room")[0].GetComponent<Renderer>();
         Vector3[] vertices = roomMesh.vertices;
 
         // Realiza correcciones de tamaño
@@ -163,17 +211,17 @@ public class Simulation : MonoBehaviour {
         roomMesh.vertices = vertices;
 
         // Ajuste del tiling de las texturas
-        Material[] roomMaterials = renderer.materials;
+        Material[] roomMaterials = roomRenderer.materials;
         roomMaterials[1].mainTextureScale = new Vector2(1.0f, (float) 1.0f / roomHeight);
         roomMaterials[2].mainTextureScale = new Vector2(height, width);
-        renderer.materials = roomMaterials;
+        roomRenderer.materials = roomMaterials;
 
         // Ajuste de la cámara, considerando un fov horizontal de 90 grados
         float camZ = (width + 2) / 2;
         float camX = (height + 2) + camZ;
-        GetComponent<Camera>().transform.position = new Vector3(camX, (float) roomHeight, camZ);
+        Camera.main.transform.position = new Vector3(camX, (float) roomHeight, camZ);
         float camRotX = Mathf.Atan((float) roomHeight / camZ) / 2 * Mathf.Rad2Deg;
-        GetComponent<Camera>().transform.eulerAngles += new Vector3(camRotX, 0, 0);
+        Camera.main.transform.eulerAngles += new Vector3(camRotX, 0, 0);
 
         // Construcción de una cuadrícula de luces
         int SECTION_SIZE = 8;

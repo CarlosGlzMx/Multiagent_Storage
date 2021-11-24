@@ -27,3 +27,15 @@ public class Action {
     public string type;
     public int dx, dy, robotID, stackSize;
 }
+
+public class Move {
+    public int robotID;
+    public Vector3 origin;
+    public Vector3 destination;
+    public Move (int id, Vector3 origin, int dx, int dy) {
+        // Hace el cambio de coordenadas de Colab a de Unity
+        this.robotID = id;
+        this.origin = origin;
+        this.destination = origin + new Vector3(dy, 0, dx);
+    }
+}
