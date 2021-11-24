@@ -31,7 +31,7 @@ public class Simulation : MonoBehaviour {
     public GameObject[] robots;
     public GameObject[] stacks;
     public Dictionary<Vector2, GameObject> boxes;
-    public float updateInterval = 5.0f;
+    public float stepSpeed = 5.0f;
     private float _timer, _dt;
 
     // Prefabs por ser colocados
@@ -107,15 +107,15 @@ public class Simulation : MonoBehaviour {
     }
 
     // Ejecuta la lista de acciones correspondiente al step actual
-    private void executeActions(Actions[] stepActions) {
+    private void executeActions(Action[] stepActions) {
         for (int i = 0; i < stepActions.Length; i++) {
-            if (Actions[i].type == "Moverse") {
+            if (stepActions[i].type == "Moverse") {
                 Debug.Log("Me muevo");
             }
-            else if (Actions[i].type == "Recoger") {
+            else if (stepActions[i].type == "Recoger") {
                 Debug.Log("Recojo caja");
             }
-            else if (Actions[i].type == "Dejar") {
+            else if (stepActions[i].type == "Dejar") {
                 Debug.Log("Dejo caja");
             }
         }
@@ -127,6 +127,7 @@ public class Simulation : MonoBehaviour {
         for (int i = 0; i < data.Length; i++) {
             robots[data[i].id] = Instantiate(robot, new Vector3(data[i].x, 1, data[i].z),
                 Quaternion.identity) as GameObject;
+            robots[data[i].id].transform.Find("Box").GetComponent<Renderer>().enabled = false;
         }
     }
 
