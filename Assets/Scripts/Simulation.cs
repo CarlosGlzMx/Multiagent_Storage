@@ -36,6 +36,7 @@ public class Simulation : MonoBehaviour {
     private List<Move> ongoingMoves = new List<Move>();
 
     // Controles de duración y activación de la simulación
+    [Range(1.0f, 10.0f)]
     public float stepDuration = 5.0f;
     private float timer, parametrizedT;
     private bool active = false;
@@ -51,7 +52,7 @@ public class Simulation : MonoBehaviour {
         StartCoroutine(RequestToColab("boxes"));
 
         // Inicialización del cronometro
-        timer = stepDuration;
+        timer = 0;
     }
 
     void Update() {
@@ -137,6 +138,7 @@ public class Simulation : MonoBehaviour {
             }
             else {
                 // Error en la conexión con Colab
+                Debug.Log(www.error);
                 Debug.Log("No hay comunicación con Colab");
                 active = false;
             }
@@ -159,9 +161,14 @@ public class Simulation : MonoBehaviour {
             else if (action.type == "Dejar") {
                 // "Deja" la caja al desactivar la caja encima e instanciar una caja en la pila
                 robots[action.robotID].transform.Find("Box").GetComponent<Renderer>().enabled = false;
-                Instantiate(box, new Vector3(robots[action.robotID].transform.position.x + action.dy,
-                    action.stackSize + 1, robots[action.robotID].transform.position.z + action.dx),
+                Instantiate(box, new Vector3(robots[action.robotID].transform.position.x + action.dy - 0.5f,
+                    action.stackSize + 1, robots[action.robotID].transform.position.z + action.dx - 0.5f),
                     Quaternion.identity);
+            }
+            else if (action.type == "Reposar") {
+                // Deja al robot en una posición de reposo
+                robots[action.robotID].transform.Find("Siren/Redlight").GetComponent<Light>().enabled = false;
+                robots[action.robotID].transform.rotation = Quaternion.identity;
             }
         }
     }
@@ -253,8 +260,8 @@ public class Simulation : MonoBehaviour {
     }
 
     private string GetPickedBoxKey(Action action) {
-        int roundedX = (int)Mathf.Round(robots[action.robotID].transform.position.x) + action.dy;
-        int roundedZ = (int)Mathf.Round(robots[action.robotID].transform.position.z) + action.dx;
+        int roundedX = (int)Mathf.Round(robots[action.robotID].transform.position.x - 0.5f) + action.dy;
+        int roundedZ = (int)Mathf.Round(robots[action.robotID].transform.position.z - 0.5f) + action.dx;
         return roundedX + "-" + roundedZ;
     }
 }
