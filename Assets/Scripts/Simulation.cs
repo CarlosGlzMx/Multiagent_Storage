@@ -22,7 +22,7 @@ using UnityEngine.Networking;
 
 public class Simulation : MonoBehaviour {
     // Variables para la creación del cuarto - base
-    private int m = 1, n = 1, roomHeight = 7;
+    private int m = 1, n = 1, roomHeight = 8;
     private Mesh roomMesh;
     private Renderer roomRenderer;
 
@@ -64,7 +64,7 @@ public class Simulation : MonoBehaviour {
                 // Acciones por realizar cada stepDuration
                 ongoingMoves.Clear();
                 StartCoroutine(RequestToColab("step"));
-                
+
                 // Reinicia el timer al cumplirse la duración
                 timer = stepDuration;
             }
@@ -74,6 +74,7 @@ public class Simulation : MonoBehaviour {
                 foreach (Move robotMove in ongoingMoves) {
                     robots[robotMove.robotID].transform.position = Vector3.Lerp(
                         robotMove.origin, robotMove.destination, parametrizedT);
+                    robots[robotMove.robotID].transform.LookAt(robotMove.destination);
                 }
             }
         }
@@ -130,7 +131,6 @@ public class Simulation : MonoBehaviour {
                 }
                 else if (requestName == "step") {
                     // Obtiene las acciones por realizar en el siguiente tiempo de acción
-                    Debug.Log(colabResponse);
                     Action[] stepActions = JsonHelper.FromJson<Action>(colabResponse);
                     if (stepActions.Length > 0) executeActions(stepActions);
                 }
@@ -154,15 +154,13 @@ public class Simulation : MonoBehaviour {
             else if (action.type == "Recoger") {
                 // "Recoge" la caja al activar la caja encima y destruir la caja debajo
                 robots[action.robotID].transform.Find("Box").GetComponent<Renderer>().enabled = true;
-                string boxPositionKey = ((int)robots[action.robotID].transform.position.x + action.dx) + "-"
-                    + ((int)(robots[action.robotID].transform.position.z + action.dy));
-                Destroy(boxes[boxPositionKey]);
+                Destroy(boxes[GetPickedBoxKey(action)]);
             }
             else if (action.type == "Dejar") {
                 // "Deja" la caja al desactivar la caja encima e instanciar una caja en la pila
                 robots[action.robotID].transform.Find("Box").GetComponent<Renderer>().enabled = false;
-                Instantiate(box, new Vector3(robots[action.robotID].transform.position.x + action.dx,
-                    action.stackSize + 1, robots[action.robotID].transform.position.z + action.dy),
+                Instantiate(box, new Vector3(robots[action.robotID].transform.position.x + action.dy,
+                    action.stackSize + 1, robots[action.robotID].transform.position.z + action.dx),
                     Quaternion.identity);
             }
         }
@@ -171,7 +169,7 @@ public class Simulation : MonoBehaviour {
     private void SpawnRobots(StorageRobot[] data) {
         robots = new GameObject[data.Length];
         for (int i = 0; i < data.Length; i++) {
-            robots[data[i].id] = Instantiate(robot, new Vector3(data[i].x, 1, data[i].z),
+            robots[data[i].id] = Instantiate(robot, new Vector3(data[i].x + 0.5f, 1, data[i].z + 0.5f),
                 Quaternion.identity) as GameObject;
             robots[data[i].id].transform.Find("Box").GetComponent<Renderer>().enabled = false;
         }
@@ -228,9 +226,6 @@ public class Simulation : MonoBehaviour {
         int horLights = width < SECTION_SIZE ? 1 : width / SECTION_SIZE;
         int verLights = height < SECTION_SIZE ? 1 : height / SECTION_SIZE;
 
-        // Disclaimer
-        Debug.Log("Unity básico no mostrará muchas fuentes de luz puntuales para no gastar recursos");
-
         // Creación de luces y personalización
         for (int i = 0; i < horLights; i++) {
             for (int j = 0; j < verLights; j++) {
@@ -255,5 +250,11 @@ public class Simulation : MonoBehaviour {
         Instantiate(door, new Vector3((float) height / 2 + 2.5f, 2.0f, 1.0f), Quaternion.Euler(90, 0, 90));
         Instantiate(door, new Vector3((float) height / 2 + 1.5f, 2.0f, (float) width + 1.0f), Quaternion.Euler(90, 180, 90));
         Instantiate(door, new Vector3((float) height / 2 + 2.5f, 2.0f, (float) width + 0.9f), Quaternion.Euler(90, 0, 90));
+    }
+
+    private string GetPickedBoxKey(Action action) {
+        int roundedX = (int)Mathf.Round(robots[action.robotID].transform.position.x) + action.dy;
+        int roundedZ = (int)Mathf.Round(robots[action.robotID].transform.position.z) + action.dx;
+        return roundedX + "-" + roundedZ;
     }
 }
